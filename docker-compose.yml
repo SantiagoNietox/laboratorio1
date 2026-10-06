@@ -1,70 +1,65 @@
-version: "3.8"
-
 services:
   postgres:
-    image: postgres:13-alpine
-    container_name: postgres_container
+    image: postgres:13
+    container_name: postgres_db
+    restart: always
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydb
+      POSTGRES_DB: users_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - monitoring_network
 
   api:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile
-    container_name: fastapi_api
+    container_name: fastapi_app
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/users_db
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/mydb
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
     networks:
-      - backend
+      - monitoring_network
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus_container
-    ports:
-      - "9090:9090"
+    container_name: prometheus_service
+    restart: always
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
     networks:
-      - backend
+      - monitoring_network
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana_container
+    container_name: grafana_service
+    restart: always
     ports:
       - "3000:3000"
     environment:
+      - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
     networks:
-      - backend
-
-networks:
-  backend:
-    driver: bridge
+      - monitoring_network
 
 volumes:
   postgres_data:
-  prometheus_data:
   grafana_data:
+
+networks:
+  monitoring_network:
+    driver: bridge
