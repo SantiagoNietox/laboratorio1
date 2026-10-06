@@ -16,7 +16,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile
     container_name: fastapi_app
     restart: always
